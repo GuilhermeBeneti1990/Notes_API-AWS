@@ -1,0 +1,82 @@
+service: notes-api
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:Scan
+      Resource: !GetAtt notesTable.Arn
+
+functions:
+  authorizer:
+    handler: authorizer.handler
+    
+  createNote:
+    handler: handler.createNote
+    environment:
+      NOTES_TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+      - http:
+          method: post
+          path: notes
+          authorizer: authorizer
+
+  updateNote:
+    handler: handler.updateNote
+    environment:
+      NOTES_TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+      - http:
+          method: put
+          path: notes/{id}
+          authorizer: authorizer
+
+  deleteNote:
+    handler: handler.deleteNote
+    environment:
+      NOTES_TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+      - http:
+          method: delete
+          path: notes/{id}
+          authorizer: authorizer
+
+  getAllNotes:
+    handler: handler.getAllNotes
+    environment:
+      NOTES_TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+      - http:
+          method: get
+          path: notes
+          authorizer: authorizer
+
+plugins:
+  -serverless-iam-roles-per-function
+
+resources:
+  Resources:
+    notesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: notes
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: notesId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: notesId
+            KeyType: HASH
